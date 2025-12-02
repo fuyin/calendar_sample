@@ -1,0 +1,5 @@
+{
+  "name": "Smart Calendar Dashboard",
+  "description": "A high-fidelity, pastel-themed smart calendar dashboard featuring multiple views (Month, Week, Day, Schedule), glassmorphism UI elements, and interactive event filtering.",
+  "requestFramePermissions": []
+}
