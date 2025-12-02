@@ -109,7 +109,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               key={user.id}
               onClick={() => toggleUserFilter(user.id)}
               className={`
-                flex items-center justify-between gap-3 px-4 py-1.5 rounded-full text-xs font-medium border transition-all min-w-[140px]
+                flex items-center justify-between gap-3 px-4 py-1.5 rounded-full text-xs font-medium border transition-all min-w-[210px]
                 ${isActive 
                   ? `${color.bg} ${color.border} text-gray-700 shadow-sm opacity-100` 
                   : 'bg-gray-200/50 border-transparent text-gray-400 opacity-70'}

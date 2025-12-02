@@ -8,6 +8,7 @@ import { WeekView } from './components/views/WeekView';
 import { USERS, MOCK_EVENTS } from './constants';
 import { ViewMode } from './types';
 import { Plus } from 'lucide-react';
+import { useSwipe } from './hooks/useSwipe';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewMode>('Day');
@@ -109,6 +110,12 @@ const App: React.FC = () => {
     setCurrentDate(newDate);
   };
 
+  // Swipe Handlers
+  const swipeHandlers = useSwipe({
+    onSwipedLeft: () => handleNavigate('next'),
+    onSwipedRight: () => handleNavigate('prev'),
+  });
+
   const renderView = () => {
     switch (currentView) {
       case 'Month':
@@ -118,7 +125,14 @@ const App: React.FC = () => {
       case 'Day':
         return <DayView currentDate={currentDate} onDateChange={setCurrentDate} events={filteredEvents} users={USERS} />;
       case 'Week':
-        return <WeekView currentDate={currentDate} events={filteredEvents} users={USERS} />;
+        return (
+          <WeekView 
+            currentDate={currentDate} 
+            events={filteredEvents} 
+            users={USERS} 
+            onNextWeekClick={() => handleNavigate('next')}
+          />
+        );
       default:
         return <MonthView currentDate={currentDate} events={filteredEvents} users={USERS} />;
     }
@@ -145,7 +159,10 @@ const App: React.FC = () => {
           onNavigate={handleNavigate}
         />
 
-        <div className="flex-1 p-2 pr-4 pb-4 overflow-hidden relative z-0">
+        <div 
+          className="flex-1 p-2 pr-4 pb-4 overflow-hidden relative z-0"
+          {...swipeHandlers} // Apply swipe listeners to the view container
+        >
           {renderView()}
         </div>
       </div>

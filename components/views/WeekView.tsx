@@ -7,6 +7,7 @@ interface WeekViewProps {
   currentDate: Date; 
   events: CalendarEvent[];
   users: User[];
+  onNextWeekClick: () => void;
 }
 
 interface WeekCell {
@@ -18,7 +19,7 @@ interface WeekCell {
   rangeStr?: string;
 }
 
-export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }) => {
+export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users, onNextWeekClick }) => {
   // Generate the week days dynamically starting from Sunday of the current week
   const startOfWeek = new Date(currentDate);
   startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Go to Sunday
@@ -110,7 +111,11 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
 
                 if (cell.isNextWeek) {
                     return (
-                        <div key={idx} className={`flex flex-col h-full bg-gray-50/30 ${borderClasses}`}>
+                        <div 
+                          key={idx} 
+                          className={`flex flex-col h-full bg-gray-50/30 ${borderClasses} cursor-pointer hover:bg-gray-50/70 transition-colors`}
+                          onClick={onNextWeekClick}
+                        >
                             <div className="p-4 border-b border-gray-200/20">
                                 <h3 className="text-lg font-serif text-gray-700">Next Week</h3>
                                 <span className="text-xs text-gray-400 font-medium">{cell.rangeStr}</span>
