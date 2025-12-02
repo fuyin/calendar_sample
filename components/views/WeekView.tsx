@@ -4,66 +4,89 @@ import { COLORS, COLOR_HEX } from '../../constants';
 import { Plus } from 'lucide-react';
 
 interface WeekViewProps {
-  currentDate: Date; // Assuming Tue Dec 2
+  currentDate: Date; 
   events: CalendarEvent[];
   users: User[];
 }
 
+interface WeekCell {
+  dayName: string;
+  date: number | null;
+  fullDate: Date | null;
+  isToday: boolean;
+  isNextWeek: boolean;
+  rangeStr?: string;
+}
+
 export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }) => {
-  // Hardcoded structure for the 4x2 grid based on screenshot
-  // Row 1: Sun 30, Mon 1, Tue 2, Wed 3
-  // Row 2: Thu 4, Fri 5, Sat 6, Next Week
-  
-  const cells = [
-    { dayName: 'Sun', date: 30, isToday: false, isNextWeek: false },
-    { dayName: 'Mon', date: 1, isToday: false, isNextWeek: false },
-    { dayName: 'Tue', date: 2, isToday: true, isNextWeek: false },
-    { dayName: 'Wed', date: 3, isToday: false, isNextWeek: false },
-    { dayName: 'Thu', date: 4, isToday: false, isNextWeek: false },
-    { dayName: 'Fri', date: 5, isToday: false, isNextWeek: false },
-    { dayName: 'Sat', date: 6, isToday: false, isNextWeek: false },
-    { dayName: 'Next Week', date: null, isToday: false, isNextWeek: true },
+  // Generate the week days dynamically starting from Sunday of the current week
+  const startOfWeek = new Date(currentDate);
+  startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Go to Sunday
+
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    weekDays.push(d);
+  }
+
+  // Next week reference for the last cell
+  const nextWeekStart = new Date(weekDays[6]);
+  nextWeekStart.setDate(nextWeekStart.getDate() + 1);
+  const nextWeekEnd = new Date(nextWeekStart);
+  nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+
+  const formatShortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const cells: WeekCell[] = [
+    ...weekDays.map(d => ({
+      dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: d.getDate(),
+      fullDate: d,
+      isToday: d.getDate() === currentDate.getDate() && d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear(),
+      isNextWeek: false
+    })),
+    { 
+      dayName: 'Next Week', 
+      date: null, 
+      fullDate: null,
+      isToday: false, 
+      isNextWeek: true,
+      rangeStr: `${formatShortDate(nextWeekStart)} - ${nextWeekStart.getMonth() !== nextWeekEnd.getMonth() ? formatShortDate(nextWeekEnd) : nextWeekEnd.getDate()}`
+    },
   ];
 
-  const getEventsForDate = (date: number) => {
+  const getEventsForDate = (date: Date) => {
     return events.filter(e => {
-       const d = new Date(e.start);
-       // Simple filter for the demo dates (Nov 30 - Dec 6)
-       if (date === 30) return d.getDate() === 30 && d.getMonth() === 10; // Nov
-       return d.getDate() === date && d.getMonth() === 11; // Dec
+       return e.start.getDate() === date.getDate() && 
+              e.start.getMonth() === date.getMonth() &&
+              e.start.getFullYear() === date.getFullYear();
     });
   };
 
-  // Helper to generate diagonal striped background (Reused from ScheduleView logic)
+  // Helper to generate diagonal striped background
   const getEventStyle = (event: CalendarEvent) => {
-    // Check if it's a multi-user event
     if (event.userIds && event.userIds.length > 1) {
        const participantColors = event.userIds.map(uid => {
           const user = users.find(u => u.id === uid);
           return user ? COLOR_HEX[user.color] : COLOR_HEX['calBlue'];
        });
-
        const step = 100 / participantColors.length;
        let gradientStops = '';
-       
        participantColors.forEach((color, index) => {
          const start = index * step;
          const end = (index + 1) * step;
          gradientStops += `${color} ${start}%, ${color} ${end}%${index < participantColors.length - 1 ? ', ' : ''}`;
        });
-
        return {
          style: { background: `linear-gradient(135deg, ${gradientStops})` },
          className: 'border border-white/50 text-gray-800'
        };
     }
-
-    // Single User
     const uid = event.userIds ? event.userIds[0] : event.userId;
     const user = users.find(u => u.id === uid);
     const colorKey = user ? user.color : 'calBlue';
     const color = COLORS[colorKey];
-
     return {
       style: {},
       className: `${color.bg} ${color.text} border border-white/50`
@@ -75,10 +98,9 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
         {/* 4x2 Grid */}
         <div className="flex-1 grid grid-cols-4 grid-rows-2">
             {cells.map((cell, idx) => {
-                const cellEvents = cell.date ? getEventsForDate(cell.date) : [];
-                const isNextWeek = cell.isNextWeek;
-
-                // Borders: Right border for all except last column. Bottom border for first row.
+                const cellEvents = cell.fullDate ? getEventsForDate(cell.fullDate) : [];
+                
+                // Borders
                 const isLastCol = (idx + 1) % 4 === 0;
                 const isFirstRow = idx < 4;
                 const borderClasses = `
@@ -86,12 +108,12 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
                   ${isFirstRow ? 'border-b border-gray-200/40' : ''}
                 `;
 
-                if (isNextWeek) {
+                if (cell.isNextWeek) {
                     return (
                         <div key={idx} className={`flex flex-col h-full bg-gray-50/30 ${borderClasses}`}>
                             <div className="p-4 border-b border-gray-200/20">
                                 <h3 className="text-lg font-serif text-gray-700">Next Week</h3>
-                                <span className="text-xs text-gray-400 font-medium">December 7 - 13</span>
+                                <span className="text-xs text-gray-400 font-medium">{cell.rangeStr}</span>
                             </div>
                             <div className="flex-1 flex items-center justify-center">
                                 <button className="flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors">
@@ -127,7 +149,7 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
                         </div>
 
                         {/* Events List */}
-                        <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
+                        <div className="flex-1 p-2 space-y-1.5 overflow-y-auto custom-scrollbar">
                             {cellEvents.map((evt) => {
                                 const { style, className } = getEventStyle(evt);
                                 
@@ -139,7 +161,6 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
                                     >
                                         <div className="flex items-center justify-between">
                                             <span className="text-xs font-bold truncate">{evt.title}</span>
-                                            {/* Show user bubbles if multi-user */}
                                             {evt.userIds && evt.userIds.length > 1 && (
                                               <div className="flex -space-x-1">
                                                 {evt.userIds.map(uid => {
@@ -158,7 +179,9 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
                                         <div className="flex items-center justify-between mt-0.5">
                                            {evt.location && <span className="text-[10px] opacity-90 truncate">{evt.location}</span>}
                                            {!evt.location && !evt.isAllDay && (
-                                             <span className="text-[10px] opacity-80">3:45 - 4:45 PM</span>
+                                             <span className="text-[10px] opacity-80">
+                                                {evt.start.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'})}
+                                             </span>
                                            )}
                                         </div>
                                     </div>
@@ -166,7 +189,6 @@ export const WeekView: React.FC<WeekViewProps> = ({ currentDate, events, users }
                             })}
                         </div>
 
-                        {/* Add Event Hover Placeholder */}
                         <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                              <button className="flex items-center gap-1 text-gray-400 hover:text-gray-600">
                                  <Plus size={14} />

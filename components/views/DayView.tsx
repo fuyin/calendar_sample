@@ -1,34 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarEvent, User } from '../../types';
 import { COLORS, COLOR_HEX } from '../../constants';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DayViewProps {
+  currentDate: Date;
+  onDateChange: (date: Date) => void;
   events: CalendarEvent[];
   users: User[];
 }
 
-export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
-  // State for the selected date, defaulting to Dec 1, 2025 to match demo data
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 11, 1));
+export const DayView: React.FC<DayViewProps> = ({ currentDate, onDateChange, events, users }) => {
+  // State for the viewed month in the mini calendar (separate from selected date)
+  const [displayDate, setDisplayDate] = useState(new Date(currentDate));
 
-  // Filter events based on the selected date
+  // Sync display month when currentDate changes significantly (optional, but good UX)
+  useEffect(() => {
+    if (currentDate.getMonth() !== displayDate.getMonth() || currentDate.getFullYear() !== displayDate.getFullYear()) {
+      setDisplayDate(new Date(currentDate));
+    }
+  }, [currentDate]);
+
+  const handleMonthChange = (offset: number) => {
+    const newDate = new Date(displayDate);
+    newDate.setMonth(displayDate.getMonth() + offset);
+    setDisplayDate(newDate);
+  };
+
+  // Filter events based on the passed currentDate (App state)
   const daysEvents = events.filter(e => 
-    e.start.getDate() === selectedDate.getDate() && 
-    e.start.getMonth() === selectedDate.getMonth() &&
-    e.start.getFullYear() === selectedDate.getFullYear()
+    e.start.getDate() === currentDate.getDate() && 
+    e.start.getMonth() === currentDate.getMonth() &&
+    e.start.getFullYear() === currentDate.getFullYear()
   ).sort((a, b) => {
-    // Sort by All Day first, then by time
     if (a.isAllDay && !b.isAllDay) return -1;
     if (!a.isAllDay && b.isAllDay) return 1;
     return a.start.getTime() - b.start.getTime();
   });
 
-  // --- Helper Functions ---
+  // Generate Mini Calendar Grid for displayDate
+  const year = displayDate.getFullYear();
+  const month = displayDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay(); // 0-6 Sun-Sat
 
-  // Generate diagonal striped background for multi-user events
+  const calendarCells = [];
+  // Prev month padding
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  for (let i = 0; i < firstDay; i++) {
+    calendarCells.push({
+      date: new Date(year, month - 1, prevMonthLastDay - firstDay + i + 1),
+      isCurrentMonth: false
+    });
+  }
+  // Current month
+  for (let i = 1; i <= daysInMonth; i++) {
+    calendarCells.push({
+      date: new Date(year, month, i),
+      isCurrentMonth: true
+    });
+  }
+  // Next month padding (fill to 42 cells for 6 rows)
+  const remaining = 42 - calendarCells.length;
+  for (let i = 1; i <= remaining; i++) {
+    calendarCells.push({
+      date: new Date(year, month + 1, i),
+      isCurrentMonth: false
+    });
+  }
+
+  // --- Helper Functions ---
   const getEventStyle = (event: CalendarEvent) => {
-    // Multi-user Striped Background
     if (event.userIds && event.userIds.length > 1) {
        const participantColors = event.userIds.map(uid => {
           const user = users.find(u => u.id === uid);
@@ -37,7 +79,6 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
 
        const step = 100 / participantColors.length;
        let gradientStops = '';
-       
        participantColors.forEach((color, index) => {
          const start = index * step;
          const end = (index + 1) * step;
@@ -46,16 +87,13 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
 
        return {
          style: { background: `linear-gradient(135deg, ${gradientStops})` },
-         className: 'text-gray-800' // Darker text for visibility on stripes
+         className: 'text-gray-800'
        };
     }
-
-    // Single User Solid Background
     const uid = event.userIds ? event.userIds[0] : event.userId;
     const user = users.find(u => u.id === uid);
     const colorKey = user ? user.color : 'calBlue';
     const color = COLORS[colorKey];
-
     return {
       style: {},
       className: `${color.bg} ${color.text}`
@@ -69,20 +107,20 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
     return `${start} - ${end}`;
   };
 
-  // Date Header Format
-  const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
-  const dayNumber = selectedDate.getDate();
+  const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' });
+  const dayNumber = currentDate.getDate();
+  const displayMonthName = displayDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
     <div className="flex h-full bg-white/40 rounded-tl-2xl ml-4 mt-2 shadow-inner border border-white/60 overflow-hidden">
       
-      {/* Left Sidebar: Mini Calendar - Scaled up 50% (w-64 -> w-96) */}
+      {/* Left Sidebar: Mini Calendar */}
       <div className="w-96 border-r border-gray-200/50 flex flex-col p-8 bg-white/50 backdrop-blur-sm z-10 hidden md:flex">
         <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-semibold text-gray-600">December 2025</h3>
+            <h3 className="text-xl font-semibold text-gray-600">{displayMonthName}</h3>
             <div className="flex gap-2">
-                <button className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400"><ChevronLeft size={20} /></button>
-                <button className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400"><ChevronRight size={20} /></button>
+                <button onClick={() => handleMonthChange(-1)} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400"><ChevronLeft size={20} /></button>
+                <button onClick={() => handleMonthChange(1)} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400"><ChevronRight size={20} /></button>
             </div>
         </div>
 
@@ -93,34 +131,24 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
             ))}
         </div>
         
-        {/* Calendar Days (Mocking Dec 2025) */}
+        {/* Calendar Days */}
         <div className="grid grid-cols-7 gap-y-5">
-            {/* Nov padding (Nov 30 - Sunday) */}
-            <div className="flex justify-center">
-                 <button 
-                    onClick={() => setSelectedDate(new Date(2025, 10, 30))}
-                    className={`text-center text-sm w-10 h-10 flex items-center justify-center rounded-full transition-all ${
-                        selectedDate.getMonth() === 10 && selectedDate.getDate() === 30 
-                        ? 'bg-[#FF7F50] text-white font-bold shadow-md' 
-                        : 'text-gray-300 hover:bg-white'
-                    }`}
-                >
-                    30
-                </button>
-            </div>
-            {/* Dec 1 - 31 */}
-            {Array.from({length: 31}, (_, i) => i + 1).map(day => {
-                const isSelected = selectedDate.getDate() === day && selectedDate.getMonth() === 11;
+            {calendarCells.map((cell, idx) => {
+                const isSelected = cell.date.toDateString() === currentDate.toDateString();
+                const isToday = new Date().toDateString() === cell.date.toDateString();
+
                 return (
-                    <div key={day} className="flex justify-center">
+                    <div key={idx} className="flex justify-center">
                         <button 
-                            onClick={() => setSelectedDate(new Date(2025, 11, day))}
+                            onClick={() => onDateChange(cell.date)}
                             className={`
                                 w-10 h-10 flex items-center justify-center rounded-full text-sm transition-all
-                                ${isSelected ? 'bg-[#FF7F50] text-white font-bold shadow-md transform scale-105' : 'text-gray-600 hover:bg-white'}
+                                ${isSelected ? 'bg-[#FF7F50] text-white font-bold shadow-md transform scale-105' : 
+                                  cell.isCurrentMonth ? 'text-gray-600 hover:bg-white' : 'text-gray-300 hover:bg-white'}
+                                ${!isSelected && isToday ? 'border border-[#FF7F50] text-[#FF7F50]' : ''}
                             `}
                         >
-                            {day}
+                            {cell.date.getDate()}
                         </button>
                     </div>
                 )
@@ -137,12 +165,10 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
              </h2>
           </div>
 
-          {/* List Container - Reduced spacing */}
+          {/* List Container */}
           <div className="flex-1 overflow-y-auto p-6 space-y-1 custom-scrollbar">
             {daysEvents.map((evt) => {
               const { style, className } = getEventStyle(evt);
-              const isStriped = evt.userIds && evt.userIds.length > 1;
-
               return (
                 <div 
                   key={evt.id}
@@ -152,10 +178,8 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
                   `}
                   style={style}
                 >
-                  {/* Content Container */}
                   <div className="flex items-center w-full z-10 gap-4">
-                    
-                    {/* Time Column (or All Day Label) */}
+                    {/* Time Column */}
                     <div className="w-24 flex-shrink-0 flex flex-col justify-center border-r border-black/5 pr-4">
                       {evt.isAllDay ? (
                         <span className="text-xs font-semibold opacity-90">All Day</span>
@@ -164,13 +188,13 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
                       )}
                     </div>
 
-                    {/* Title & Location */}
+                    {/* Title */}
                     <div className="flex-1 flex flex-col justify-center min-w-0">
                        <h3 className="text-sm font-bold opacity-95 truncate">{evt.title}</h3>
                        {evt.location && <span className="text-[10px] opacity-75 mt-0.5 truncate">{evt.location}</span>}
                     </div>
 
-                    {/* Users / Avatars */}
+                    {/* Users */}
                     <div className="flex -space-x-1.5">
                       {(evt.userIds || [evt.userId]).map((uid, idx) => {
                          if (!uid) return null;
@@ -192,19 +216,13 @@ export const DayView: React.FC<DayViewProps> = ({ events, users }) => {
               );
             })}
             
-            {/* Empty State spacer */}
             {daysEvents.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2">
                 <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-2">
                   <span className="text-2xl">📅</span>
                 </div>
                 <p>No events for this day</p>
-                <button 
-                  onClick={() => {/* Mock add event */}}
-                  className="text-sm text-blue-500 font-medium hover:underline"
-                >
-                  Add Event
-                </button>
+                <button className="text-sm text-blue-500 font-medium hover:underline">Add Event</button>
               </div>
             )}
           </div>

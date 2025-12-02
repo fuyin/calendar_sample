@@ -12,6 +12,7 @@ interface TopBarProps {
   onViewChange: (view: ViewMode) => void;
   isViewMenuOpen: boolean;
   setIsViewMenuOpen: (isOpen: boolean) => void;
+  onNavigate: (direction: 'prev' | 'next' | 'today') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ 
@@ -22,13 +23,14 @@ export const TopBar: React.FC<TopBarProps> = ({
   currentView,
   onViewChange,
   isViewMenuOpen,
-  setIsViewMenuOpen
+  setIsViewMenuOpen,
+  onNavigate
 }) => {
   
   // Format: "Tue, Dec 2"
   const dateStr = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(currentDate);
   // Time: Mocked to match screenshot or dynamic
-  const timeStr = "11:53 AM"; // Static for screenshot fidelity
+  const timeStr = "11:53 AM"; 
 
   const viewOptions: ViewMode[] = ['Schedule', 'Day', 'Week', 'Month'];
 
@@ -53,7 +55,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           
           <div className="relative">
             <button 
-              onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsViewMenuOpen(!isViewMenuOpen);
+              }}
               className="flex items-center gap-2 bg-white/50 hover:bg-white/80 border border-gray-200/50 px-4 py-1.5 rounded-full text-sm font-medium text-gray-700 shadow-sm transition-all w-32 justify-between"
             >
               {currentView}
@@ -86,9 +91,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
 
           <div className="flex items-center gap-1 bg-white/50 rounded-full p-1 shadow-sm">
-            <button className="p-1 hover:bg-white rounded-full text-gray-500"><ChevronLeft size={16} /></button>
-            <span className="text-xs font-medium px-2 text-gray-600">Today</span>
-            <button className="p-1 hover:bg-white rounded-full text-gray-500"><ChevronRight size={16} /></button>
+            <button onClick={() => onNavigate('prev')} className="p-1 hover:bg-white rounded-full text-gray-500"><ChevronLeft size={16} /></button>
+            <button onClick={() => onNavigate('today')} className="text-xs font-medium px-2 text-gray-600 hover:text-gray-800 transition-colors">Today</button>
+            <button onClick={() => onNavigate('next')} className="p-1 hover:bg-white rounded-full text-gray-500"><ChevronRight size={16} /></button>
           </div>
         </div>
       </div>
@@ -104,17 +109,19 @@ export const TopBar: React.FC<TopBarProps> = ({
               key={user.id}
               onClick={() => toggleUserFilter(user.id)}
               className={`
-                flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all
+                flex items-center justify-between gap-3 px-4 py-1.5 rounded-full text-xs font-medium border transition-all min-w-[140px]
                 ${isActive 
                   ? `${color.bg} ${color.border} text-gray-700 shadow-sm opacity-100` 
                   : 'bg-gray-200/50 border-transparent text-gray-400 opacity-70'}
               `}
             >
-              <div className={`w-4 h-4 rounded-full flex items-center justify-center bg-white/40 text-[9px] font-bold ${color.text}`}>
-                {user.name.charAt(0)}
+              <div className="flex items-center gap-2">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center bg-white/40 text-[9px] font-bold ${color.text}`}>
+                  {user.name.charAt(0)}
+                </div>
+                <span>{user.name}</span>
               </div>
-              <span>{user.name}</span>
-              <span className={`opacity-60`}>{user.completedTasks}/{user.totalTasks}</span>
+              <span className="opacity-80 font-semibold text-[10px]">{user.completedTasks}/{user.totalTasks}</span>
             </button>
           );
         })}

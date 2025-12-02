@@ -9,40 +9,53 @@ interface MonthViewProps {
 }
 
 export const MonthView: React.FC<MonthViewProps> = ({ currentDate, events, users }) => {
-  const daysInMonth = 31; // Dec 2025
-  const startDayOfWeek = 1; // Dec 1st 2025 is Monday
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0-6 Sun-Sat
 
   // Generate calendar grid
   const days = [];
   // Previous month padding
-  for (let i = 0; i < startDayOfWeek; i++) {
-    days.push({ day: 30 - startDayOfWeek + i + 1, type: 'prev' });
+  // Calculate how many days from prev month to show. 
+  // If firstDay is 0 (Sun), maybe show 0 padding? Or standard calendar often shows prev month.
+  // Let's assume standard grid starting Sunday.
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    days.push({ 
+      day: prevMonthDays - firstDayOfMonth + i + 1, 
+      type: 'prev',
+      date: new Date(year, month - 1, prevMonthDays - firstDayOfMonth + i + 1)
+    });
   }
+  
   // Current month
   for (let i = 1; i <= daysInMonth; i++) {
-    days.push({ day: i, type: 'current' });
+    days.push({ 
+      day: i, 
+      type: 'current',
+      date: new Date(year, month, i)
+    });
   }
+  
   // Next month padding
   const remainingCells = 42 - days.length; // 6 rows * 7 cols
   for (let i = 1; i <= remainingCells; i++) {
-    days.push({ day: i, type: 'next' });
+    days.push({ 
+      day: i, 
+      type: 'next',
+      date: new Date(year, month + 1, i)
+    });
   }
 
-  const getEventsForDay = (day: number) => {
+  const getEventsForDay = (date: Date) => {
     return events.filter(e => {
-        const d = new Date(e.start);
-        return d.getDate() === day && d.getMonth() === 11; // Hardcoded for Dec demo
+        return e.start.getDate() === date.getDate() && 
+               e.start.getMonth() === date.getMonth() &&
+               e.start.getFullYear() === date.getFullYear();
     });
   };
-
-  const getHolidaysForDay = (day: number) => {
-    return events.filter(e => e.isHoliday && e.start.getDate() === day && e.start.getMonth() === 11); // Hardcoded Dec
-  }
-
-  // Next month holidays
-  const getNextMonthHolidays = (day: number) => {
-     return events.filter(e => e.isHoliday && e.start.getDate() === day && e.start.getMonth() === 0);
-  }
 
   // Helper to generate diagonal striped background
   const getEventStyle = (event: CalendarEvent) => {
@@ -64,7 +77,7 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, events, users
 
        return {
          style: { background: `linear-gradient(135deg, ${gradientStops})` },
-         className: 'text-gray-800 border border-white/40' // Darker text for visibility on stripes
+         className: 'text-gray-800 border border-white/40'
        };
     }
 
@@ -80,11 +93,13 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, events, users
     };
   };
 
+  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-white/40 rounded-tl-2xl ml-4 mt-2 shadow-inner border border-white/60">
       {/* Month Header */}
       <div className="p-4 border-b border-gray-100/50 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-600">December 2025</h2>
+        <h2 className="text-xl font-semibold text-gray-600">{monthName}</h2>
       </div>
 
       {/* Days Header */}
@@ -99,14 +114,13 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, events, users
       {/* Grid */}
       <div className="flex-1 grid grid-cols-7 grid-rows-6">
         {days.map((cell, idx) => {
-          const isToday = cell.type === 'current' && cell.day === 2; // Dec 2 is current in demo
+          const isToday = new Date().toDateString() === cell.date.toDateString(); 
+          // For demo purposes, let's also highlight the selected "Demo Today"
+          const isDemoToday = cell.date.getDate() === 2 && cell.date.getMonth() === 11 && cell.date.getFullYear() === 2025;
+          const highlightDay = isDemoToday; 
           
-          // Get content based on cell type
-          const cellEvents = cell.type === 'current' ? getEventsForDay(cell.day) : [];
-          const holidays = cell.type === 'current' 
-            ? getHolidaysForDay(cell.day) 
-            : (cell.type === 'next' ? getNextMonthHolidays(cell.day) : []);
-            
+          const cellEvents = getEventsForDay(cell.date);
+          const holidays = cellEvents.filter(e => e.isHoliday);
           const isOtherMonth = cell.type !== 'current';
 
           return (
@@ -114,7 +128,7 @@ export const MonthView: React.FC<MonthViewProps> = ({ currentDate, events, users
               <div className="flex justify-start p-1.5">
                 <span className={`
                   text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full transition-all
-                  ${isToday 
+                  ${highlightDay 
                     ? 'bg-[#FF7F50] text-white shadow-lg shadow-red-200 scale-110' 
                     : isOtherMonth ? 'text-gray-300' : 'text-gray-600'}
                 `}>
